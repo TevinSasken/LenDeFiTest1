@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   User, 
@@ -21,10 +21,37 @@ import {
 } from 'lucide-react';
 
 const Profile: React.FC = () => {
-  const { state } = useAuth();
+  const { state, updateUserProfile } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [showSensitiveInfo, setShowSensitiveInfo] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    phone: '',
+  });
+
+  useEffect(() => {
+    if (state.user) {
+      setFormData({
+        phone: state.user.phone || '',
+      });
+    }
+  }, [state.user]);
+  
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+  
+  const handleSaveChanges = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const result = await updateUserProfile(formData);
+    if (result.success) {
+      alert('Profile updated successfully!');
+      setIsEditing(false);
+    } else {
+      alert(`Update failed: ${result.message}`);
+    }
+  };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -123,6 +150,8 @@ const Profile: React.FC = () => {
     { id: 'security', name: 'Security', icon: Shield },
   ];
 
+  const isKycVerified = state.user?.kycStatus === 'verified';
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -188,68 +217,62 @@ const Profile: React.FC = () => {
           </div>
 
           {/* Personal Information */}
-          <div className="bg-white rounded-xl p-6 shadow-sm">
+          <form onSubmit={handleSaveChanges} className="bg-white rounded-xl p-6 shadow-sm">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-gray-900">Personal Information</h2>
+              {!isEditing && (
               <button
+                type="button"
                 onClick={() => setShowSensitiveInfo(!showSensitiveInfo)}
                 className="flex items-center space-x-2 text-sm text-orange-600 hover:text-orange-700"
               >
                 {showSensitiveInfo ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 <span>{showSensitiveInfo ? 'Hide' : 'Show'} Details</span>
               </button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Column */}
               <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <User className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-500">Full Name</p>
-                    <p className="font-medium text-gray-900">{state.user?.name}</p>
-                  </div>
+                {/* Full Name */}
+                <div>
+                  <label className="text-sm text-gray-500 flex items-center"><User className="h-4 w-4 mr-2" />Full Name</label>
+                  <input type="text" value={state.user?.name || ''} disabled className="mt-1 w-full p-2 border border-gray-200 rounded-md bg-gray-50 cursor-not-allowed"/>
+                  {isKycVerified && <p className="text-xs text-gray-400 mt-1">Cannot be changed after KYC verification.</p>}
                 </div>
 
-                <div className="flex items-center space-x-3">
-                  <Mail className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-500">Email Address</p>
-                    <p className="font-medium text-gray-900">{state.user?.email}</p>
-                  </div>
+                {/* Email */}
+                <div>
+                    <label className="text-sm text-gray-500 flex items-center"><Mail className="h-4 w-4 mr-2" />Email Address</label>
+                    <input type="email" value={state.user?.email || ''} disabled={isKycVerified} className="mt-1 w-full p-2 border border-gray-200 rounded-md bg-gray-50 disabled:cursor-not-allowed"/>
+                    {isKycVerified && <p className="text-xs text-gray-400 mt-1">Contact support to change your email.</p>}
                 </div>
 
-                <div className="flex items-center space-x-3">
-                  <Phone className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-500">Phone Number</p>
-                    <p className="font-medium text-gray-900">
-                      {showSensitiveInfo ? '+1 (555) 123-4567' : '••• ••• •••7'}
-                    </p>
-                  </div>
+                {/* Phone */}
+                <div>
+                    <label className="text-sm text-gray-500 flex items-center"><Phone className="h-4 w-4 mr-2" />Phone Number</label>
+                    <input type="tel" name="phone" value={isEditing ? formData.phone : (showSensitiveInfo ? state.user?.phone : '••••••••' + state.user?.phone?.slice(-2))} onChange={handleInputChange} disabled={!isEditing} className="mt-1 w-full p-2 border border-gray-200 rounded-md disabled:bg-gray-50 disabled:cursor-not-allowed"/>
                 </div>
               </div>
 
+              {/* Right Column */}
               <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <Calendar className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-500">Date of Birth</p>
-                    <p className="font-medium text-gray-900">
-                      {showSensitiveInfo ? 'January 15, 1990' : '••• ••, ••••'}
-                    </p>
-                  </div>
-                </div>
+                 {/* Date of Birth */}
+                 <div>
+                    <label className="text-sm text-gray-500 flex items-center"><Calendar className="h-4 w-4 mr-2" />Date of Birth</label>
+                    <input type="text" value={showSensitiveInfo || !isKycVerified ? new Date(state.user?.dateOfBirth || '').toLocaleDateString() : '••/••/••••'} disabled className="mt-1 w-full p-2 border border-gray-200 rounded-md bg-gray-50 cursor-not-allowed"/>
+                    {isKycVerified && <p className="text-xs text-gray-400 mt-1">Cannot be changed after KYC verification.</p>}
+                 </div>
 
-                <div className="flex items-center space-x-3">
-                  <FileText className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-500">ID Number</p>
-                    <p className="font-medium text-gray-900">
-                      {showSensitiveInfo ? 'ID123456789' : '•••••••••9'}
-                    </p>
-                  </div>
-                </div>
+                 {/* ID Number */}
+                 <div>
+                    <label className="text-sm text-gray-500 flex items-center"><FileText className="h-4 w-4 mr-2" />ID Number</label>
+                    <input type="text" value={showSensitiveInfo || !isKycVerified ? state.user?.idNumber : '••••••' + state.user?.idNumber?.slice(-3)} disabled className="mt-1 w-full p-2 border border-gray-200 rounded-md bg-gray-50 cursor-not-allowed"/>
+                    {isKycVerified && <p className="text-xs text-gray-400 mt-1">Cannot be changed after KYC verification.</p>}
+                 </div>
 
+                {/* KYC Status */}
                 <div className="flex items-center space-x-3">
                   <Shield className="h-5 w-5 text-gray-400" />
                   <div>
@@ -266,12 +289,23 @@ const Profile: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <button className="bg-orange-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-orange-700 transition-colors">
-                Edit Profile
-              </button>
+            <div className="mt-6 pt-6 border-t border-gray-200 flex space-x-3">
+              {isEditing ? (
+                <>
+                  <button type="submit" className="bg-orange-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-orange-700 transition-colors">
+                    Save Changes
+                  </button>
+                  <button type="button" onClick={() => setIsEditing(false)} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors">
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button type="button" onClick={() => setIsEditing(true)} className="bg-orange-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-orange-700 transition-colors">
+                  Edit Profile
+                </button>
+              )}
             </div>
-          </div>
+          </form>
         </div>
       )}
 

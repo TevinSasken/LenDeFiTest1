@@ -1,71 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { roscaAPI } from '../services/api';
 import { ArrowLeft, Users, Calendar, Bitcoin, MessageCircle, CreditCard } from 'lucide-react';
 import ChatWindow from '../components/ChatWindow';
+import { ROSCA as ROSCAType, Transaction as TransactionType } from '../types';
 
 const ROSCADetails: React.FC = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
+  const [rosca, setRosca] = useState<ROSCAType | null>(null);
+  const [transactions, setTransactions] = useState<TransactionType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Mock ROSCA data
-  const rosca = {
-    id: '1',
-    name: 'Tech Entrepreneurs Circle',
-    contributionAmount: 0.1,
-    cycleDuration: 30,
-    maxMembers: 10,
-    currentMembers: 7,
-    isOnChain: true,
-    status: 'active',
-    nextPayout: '2025-02-15',
-    description: 'Monthly savings group for tech professionals',
-    members: [
-      'Alice Johnson',
-      'Bob Smith',
-      'Carol Davis',
-      'David Wilson',
-      'Eva Martinez',
-      'Frank Chen',
-      'Grace Kim',
-    ],
-    contributions: [
-      {
-        id: '1',
-        member: 'Alice Johnson',
-        amount: 0.1,
-        cycle: 1,
-        date: '2025-01-15',
-        status: 'completed',
-      },
-      {
-        id: '2',
-        member: 'Bob Smith',
-        amount: 0.1,
-        cycle: 1,
-        date: '2025-01-15',
-        status: 'completed',
-      },
-      {
-        id: '3',
-        member: 'Carol Davis',
-        amount: 0.1,
-        cycle: 1,
-        date: '2025-01-15',
-        status: 'pending',
-      },
-    ],
-    payouts: [
-      {
-        id: '1',
-        recipient: 'Alice Johnson',
-        amount: 0.7,
-        cycle: 1,
-        date: '2025-01-15',
-        status: 'completed',
-      },
-    ],
-  };
+  useEffect(() => {
+    const fetchRoscaDetails = async () => {
+      if (!id) return;
+      setLoading(true);
+      try {
+        const response = await roscaAPI.getROSCAById(id);
+        if (response.data.success) {
+          setRosca(response.data.data.rosca);
+          setTransactions(response.data.data.transactions);
+        }
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Failed to fetch ROSCA details');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRoscaDetails();
+  }, [id]);
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: Users },
@@ -76,6 +42,29 @@ const ROSCADetails: React.FC = () => {
   const handleContribute = () => {
     alert('Contribution submitted successfully!');
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-600"></div>
+      </div>
+    );
+  }
+
+  if (error || !rosca) {
+    return (
+      <div className="text-center py-10">
+        <h2 className="text-xl font-bold">Error</h2>
+        <p>{error || 'ROSCA not found.'}</p>
+        <button onClick={() => navigate('/rosca')} className="mt-4 bg-orange-600 text-white px-4 py-2 rounded">
+          Back to ROSCAs
+        </button>
+      </div>
+    );
+  }
+  
+  const contributions = transactions.filter(t => t.subType === 'contribution');
+  const payouts = transactions.filter(t => t.subType === 'payout');
 
   return (
     <div className="space-y-6">
@@ -134,7 +123,7 @@ const ROSCADetails: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500">Next Payout</p>
-              <p className="text-lg font-bold text-gray-900">{new Date(rosca.nextPayout).toLocaleDateString()}</p>
+              <p className="text-lg font-bold text-gray-900">{new Date(rosca.nextPayoutDate).toLocaleDateString()}</p>
             </div>
             <CreditCard className="h-8 w-8 text-purple-600" />
           </div>
@@ -168,19 +157,20 @@ const ROSCADetails: React.FC = () => {
       {activeTab === 'overview' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Members List */}
+            {/* Members List (Mocked) */}
             <div className="bg-white rounded-xl p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Members</h2>
               <div className="space-y-3">
-                {rosca.members.map((member, index) => (
+                {/* NOTE: Member list functionality requires backend changes (e.g., a RoscaMembers table) */}
+                {[...Array(rosca.currentMembers)].map((_, index) => (
                   <div key={index} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
                         <span className="text-sm font-medium text-orange-600">
-                          {member.split(' ').map(n => n[0]).join('')}
+                          M{index + 1}
                         </span>
                       </div>
-                      <span className="font-medium text-gray-900">{member}</span>
+                      <span className="font-medium text-gray-900">Member {index + 1}</span>
                     </div>
                     <span className="text-sm text-gray-500">Position #{index + 1}</span>
                   </div>
@@ -192,11 +182,11 @@ const ROSCADetails: React.FC = () => {
             <div className="bg-white rounded-xl p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Payouts</h2>
               <div className="space-y-3">
-                {rosca.payouts.map((payout) => (
+                {payouts.map((payout) => (
                   <div key={payout.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
                     <div>
-                      <p className="font-medium text-gray-900">{payout.recipient}</p>
-                      <p className="text-sm text-gray-500">Cycle {payout.cycle} • {new Date(payout.date).toLocaleDateString()}</p>
+                      <p className="font-medium text-gray-900">{payout.user?.name || 'Unknown User'}</p>
+                      <p className="text-sm text-gray-500">Cycle {rosca.currentCycle} • {new Date(payout.createdAt).toLocaleDateString()}</p>
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-green-600">₿{payout.amount}</p>
@@ -206,6 +196,7 @@ const ROSCADetails: React.FC = () => {
                     </div>
                   </div>
                 ))}
+                 {payouts.length === 0 && <p className="text-gray-500 text-sm">No payouts yet.</p>}
               </div>
             </div>
           </div>
@@ -254,19 +245,19 @@ const ROSCADetails: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {rosca.contributions.map((contribution) => (
+                {contributions.map((contribution) => (
                   <tr key={contribution.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{contribution.member}</div>
+                      <div className="text-sm font-medium text-gray-900">{contribution.user?.name || 'Unknown User'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">₿{contribution.amount}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{contribution.cycle}</div>
+                      <div className="text-sm text-gray-900">{rosca.currentCycle}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{new Date(contribution.date).toLocaleDateString()}</div>
+                      <div className="text-sm text-gray-900">{new Date(contribution.createdAt).toLocaleDateString()}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -281,13 +272,14 @@ const ROSCADetails: React.FC = () => {
                 ))}
               </tbody>
             </table>
+            {contributions.length === 0 && <p className="text-gray-500 text-sm p-4">No contributions yet.</p>}
           </div>
         </div>
       )}
 
       {/* Chat Tab */}
       {activeTab === 'chat' && (
-        <ChatWindow roscaName={rosca.name} members={rosca.members} />
+        <ChatWindow roscaName={rosca.name} members={[...Array(rosca.currentMembers)].map((_, i) => `Member ${i+1}`)} />
       )}
     </div>
   );

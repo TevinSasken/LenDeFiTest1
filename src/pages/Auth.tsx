@@ -52,6 +52,8 @@ const Auth: React.FC = () => {
     setLoading(true);
     setApiError('');
     
+    console.log('Submitting Firebase auth:', { isLogin, email: formData.email });
+    
     // Email validation
     if (!validateEmail(formData.email)) {
       setEmailError('Please enter a valid email address');
@@ -75,11 +77,11 @@ const Auth: React.FC = () => {
       let result;
       
       if (isLogin) {
+        console.log('Attempting Firebase login...');
         result = await login(formData.email, formData.password);
       } else {
+        console.log('Attempting Firebase registration...');
         const userData = {
-          email: formData.email,
-          password: formData.password,
           name: formData.name,
           phone: formData.phone,
           dateOfBirth: formData.dateOfBirth,
@@ -87,15 +89,18 @@ const Auth: React.FC = () => {
           role: isAdmin ? 'admin' : 'user',
           ...(isAdmin && { adminSecret: formData.adminSecret })
         };
-        result = await register(userData);
+        result = await register(formData.email, formData.password, userData);
       }
 
+      console.log('Firebase auth result:', { success: result.success, message: result.message });
       if (result.success) {
+        console.log('Firebase auth successful, navigating to dashboard');
         navigate('/dashboard');
       } else {
         setApiError(result.message);
       }
     } catch (error) {
+      console.error('Firebase auth error:', error);
       setApiError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Create axios instance with default config
 const api = axios.create({
@@ -8,11 +8,13 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 10000, // 10 second timeout
 });
 
 // Add request interceptor to include auth token
 api.interceptors.request.use(
   (config) => {
+    console.log(`Making ${config.method?.toUpperCase()} request to: ${config.baseURL}${config.url}`);
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -20,15 +22,26 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    console.error('Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
 
 // Add response interceptor to handle errors
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log(`Response from ${response.config.url}:`, response.status);
+    return response;
+  },
   (error) => {
-    if (error.response?.status === 401) {
+    console.error('API Error:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      message: error.response?.data?.message || error.message
+    });
+    
+    if (error.response?.status === 401 && window.location.pathname !== '/auth') {
       localStorage.removeItem('token');
       window.location.href = '/auth';
     }
@@ -38,11 +51,10 @@ api.interceptors.response.use(
 
 // Auth API
 export const authAPI = {
-  register: (userData: any) => api.post('/auth/register', userData),
-  login: (credentials: any) => api.post('/auth/login', credentials),
+  createOrUpdateProfile: (userData: any) => api.post('/auth/profile', userData),
   getProfile: () => api.get('/auth/profile'),
   updateProfile: (data: any) => api.put('/auth/profile', data),
-  changePassword: (data: any) => api.put('/auth/change-password', data),
+  deleteAccount: () => api.delete('/auth/profile'),
 };
 
 // Loan API
@@ -81,7 +93,13 @@ export const adminAPI = {
   updateKYC: (id: string, data: any) => api.put(`/admin/users/${id}/kyc`, data),
   deactivateUser: (id: string, data: any) => api.put(`/admin/users/${id}/deactivate`, data),
   updateLoanStatus: (id: string, data: any) => api.put(`/admin/loans/${id}/status`, data),
-  exportData: (params: any) => api.get('/admin/export', { params }),
+  getLoans: (params?: any) => api.get('/admin/loans', { params }),
+  getRoscas: (params?: any) => api.get('/admin/roscas', { params }),
+  exportData: (params: any) => api.get('/admin/export', { 
+    params, 
+    // Handle binary data like CSV correctly
+    responseType: params.format === 'csv' ? 'blob' : 'json' 
+  }),
 };
 
 export default api;

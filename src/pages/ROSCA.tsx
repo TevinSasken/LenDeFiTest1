@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { roscaAPI } from '../services/api';
 import { Plus, Users, Clock, Bitcoin, ChevronRight } from 'lucide-react';
+import { ROSCA as ROSCAType } from '../types';
 
 const ROSCA: React.FC = () => {
   const [activeTab, setActiveTab] = useState('available');
-  const [roscas, setROSCAs] = useState([]);
+  const [roscas, setROSCAs] = useState<ROSCAType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -68,10 +69,6 @@ const ROSCA: React.FC = () => {
             Join rotating savings and credit associations for community-based savings
           </p>
         </div>
-        <button className="bg-orange-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-orange-700 transition-colors flex items-center space-x-2">
-          <Plus className="h-4 w-4" />
-          <span>Create ROSCA</span>
-        </button>
         <Link
           to="/rosca/create"
           className="bg-orange-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-orange-700 transition-colors flex items-center space-x-2"

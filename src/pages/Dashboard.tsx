@@ -29,12 +29,15 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
+      console.log('Fetching dashboard data...');
       try {
         const [transactionsRes, summaryRes] = await Promise.all([
           transactionAPI.getTransactions({ limit: 5 }),
           transactionAPI.getSummary()
         ]);
 
+        console.log('Transactions response:', transactionsRes.data);
+        console.log('Summary response:', summaryRes.data);
         if (transactionsRes.data.success) {
           setRecentActivity(transactionsRes.data.data.transactions);
         }
@@ -44,6 +47,7 @@ const Dashboard: React.FC = () => {
         }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
+        // Don't show error to user for dashboard data, just log it
       } finally {
         setLoading(false);
       }
